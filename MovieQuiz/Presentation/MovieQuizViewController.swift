@@ -17,7 +17,8 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     @IBOutlet weak private var textLabel: UILabel!
     @IBOutlet weak private var counterLabel: UILabel!
     @IBOutlet weak private var yesButton: UIButton!
-    @IBOutlet weak var noButton: UIButton!
+    @IBOutlet weak private var noButton: UIButton!
+    @IBOutlet weak private var activityIndicator: UIActivityIndicatorView!
     
     @IBAction private func yesButtonClicked(_ sender: UIButton) {
         buttonAction(answer: true)
@@ -33,18 +34,22 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         super.viewDidLoad()
         
         showingAlert = AlertPresenter(alertDelegate: self)
-        questionFactory = QuestionFactory(delegate: self)
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         statisticService = StatisticServiceImplementation()
         
         questionFactory?.requestNextQuestion()
-        
+        questionFactory?.loadData()
+
         viewClearBorder()
+        
+        activityIndicator.hidesWhenStopped = true
+        activityIndicator.startAnimating()
     }
     
     // MARK: - QuestionFactoryDelegate
     
     func didReceiveNextQuestion(question: QuizQuestion?) {
-        guard let question = question else {
+        guard let question else {
             return
         }
         
@@ -59,11 +64,10 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     // MARK: - Actions
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
-        let questionStep = QuizStepViewModel(
-            image: UIImage(named:  model.image) ?? UIImage(),
+        return QuizStepViewModel(
+            image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
-        return questionStep
     }
     
     private func show(quiz step: QuizStepViewModel) {
@@ -116,7 +120,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         
         statisticService?.store(correct: correctAnswers, total: questionsAmount)
         
-        let viewModel = AlertModel(titel: "Этот раунд окончен!",
+        let model = AlertModel(titel: "Этот раунд окончен!",
                                    message: makeResultMassege(),
                                    buttonText: "Сыграть ещё раз",
                                    completion: { [weak self] _ in guard let self else { return }
@@ -124,7 +128,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
             self.correctAnswers = 0
             self.questionFactory?.requestNextQuestion()
         })
-        showingAlert?.showAlert(viewModel)
+        showingAlert?.showAlert(model)
     }
     
     private func makeResultMassege() -> String {
@@ -153,6 +157,34 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     private func buttonBlocked(answer: Bool) {
         noButton.isEnabled = answer
         yesButton.isEnabled = answer
+    }
+    
+    private func showNetworkError(message: String) {
+        activityIndicator.stopAnimating()
+        let model = AlertModel(titel: "Что-то пошло не так(",
+                               message: message,
+                               buttonText: "Попробовать еще раз",
+                               completion: { [weak self] _ in guard let self else { return }
+            self.currentQuestionIndex = 0
+            self.correctAnswers = 0
+            
+            questionFactory?.requestNextQuestion()
+            
+            viewClearBorder()
+            activityIndicator.startAnimating()
+            questionFactory?.loadData()
+        })
+        
+        showingAlert?.showAlert(model)
+    }
+    
+    func didLoadDataFromServer() {
+        activityIndicator.stopAnimating()
+        questionFactory?.requestNextQuestion()
+    }
+
+    func didFailToLoadData(with error: Error) {
+        showNetworkError(message: error.localizedDescription)
     }
     
 }
