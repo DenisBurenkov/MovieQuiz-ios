@@ -2,8 +2,15 @@ import UIKit
 
 final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
-    // MARK: - Private functions
+    //MARK: - IBOutlet
+    @IBOutlet weak private var imageView: UIImageView!
+    @IBOutlet weak private var textLabel: UILabel!
+    @IBOutlet weak private var counterLabel: UILabel!
+    @IBOutlet weak private var yesButton: UIButton!
+    @IBOutlet weak private var noButton: UIButton!
+    @IBOutlet weak private var activityIndicator: UIActivityIndicatorView!
     
+    // MARK: - Private functions
     private var currentQuestionIndex = 0
     private var correctAnswers = 0
     private let questionsAmount: Int = 10
@@ -13,23 +20,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     private var showingAlert: ShowAlertProtocol?
     private var statisticService: StatisticService?
     
-    @IBOutlet weak private var imageView: UIImageView!
-    @IBOutlet weak private var textLabel: UILabel!
-    @IBOutlet weak private var counterLabel: UILabel!
-    @IBOutlet weak private var yesButton: UIButton!
-    @IBOutlet weak private var noButton: UIButton!
-    @IBOutlet weak private var activityIndicator: UIActivityIndicatorView!
-    
-    @IBAction private func yesButtonClicked(_ sender: UIButton) {
-        buttonAction(answer: true)
-    }
-    
-    @IBAction private func noButtonClicked(_ sender: UIButton) {
-        buttonAction(answer: false)
-    }
-    
     // MARK: - Lifecycle
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -39,7 +30,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         
         questionFactory?.requestNextQuestion()
         questionFactory?.loadData()
-
+        
         viewClearBorder()
         
         activityIndicator.hidesWhenStopped = true
@@ -47,21 +38,20 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     }
     
     // MARK: - QuestionFactoryDelegate
-    
     func didReceiveNextQuestion(question: QuizQuestion?) {
         guard let question else {
             return
         }
-        
         
         currentQuestion = question
         let viewModel = convert(model: question)
         DispatchQueue.main.async { [weak self] in
             self?.show(quiz: viewModel)
         }
+        
     }
     
-    // MARK: - Actions
+    // MARK: - Private actions
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         return QuizStepViewModel(
@@ -105,8 +95,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
             showFinelResults()
             viewClearBorder()
             buttonBlocked(answer: true)
-            
-            
         } else {
             currentQuestionIndex += 1
             questionFactory?.requestNextQuestion()
@@ -117,17 +105,18 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     }
     
     private func showFinelResults() {
-        
         statisticService?.store(correct: correctAnswers, total: questionsAmount)
         
-        let model = AlertModel(titel: "Этот раунд окончен!",
-                                   message: makeResultMassege(),
-                                   buttonText: "Сыграть ещё раз",
-                                   completion: { [weak self] _ in guard let self else { return }
+        let model = AlertModel(
+            titel: "Этот раунд окончен!",
+            message: makeResultMassege(),
+            buttonText: "Сыграть ещё раз"
+        ){ [weak self] _ in
+            guard let self else { return }
             self.currentQuestionIndex = 0
             self.correctAnswers = 0
             self.questionFactory?.requestNextQuestion()
-        })
+        }
         showingAlert?.showAlert(model)
     }
     
@@ -161,19 +150,19 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
     private func showNetworkError(message: String) {
         activityIndicator.stopAnimating()
-        let model = AlertModel(titel: "Что-то пошло не так(",
-                               message: message,
-                               buttonText: "Попробовать еще раз",
-                               completion: { [weak self] _ in guard let self else { return }
+        let model = AlertModel(
+            titel: "Что-то пошло не так(",
+            message: message,
+            buttonText: "Попробовать еще раз"
+        ){ [weak self] _ in
+            guard let self else { return }
             self.currentQuestionIndex = 0
             self.correctAnswers = 0
-            
             questionFactory?.requestNextQuestion()
-            
             viewClearBorder()
             activityIndicator.startAnimating()
             questionFactory?.loadData()
-        })
+        }
         
         showingAlert?.showAlert(model)
     }
@@ -182,9 +171,16 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         activityIndicator.stopAnimating()
         questionFactory?.requestNextQuestion()
     }
-
+    
     func didFailToLoadData(with error: Error) {
         showNetworkError(message: error.localizedDescription)
     }
     
+    @IBAction private func yesButtonClicked(_ sender: UIButton) {
+        buttonAction(answer: true)
+    }
+    
+    @IBAction private func noButtonClicked(_ sender: UIButton) {
+        buttonAction(answer: false)
+    }
 }
